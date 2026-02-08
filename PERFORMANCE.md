@@ -13,18 +13,18 @@ The Food Explorer RAG application achieves **400-900ms end-to-end response times
 ```
 Total End-to-End Latency: ~400-900ms
 
-┌────────────────────────────────────────────────────┐
-│  Component              │  Time     │  % of Total  │
-├────────────────────────────────────────────────────┤
+┌───────────────────────────────────────────────────┐
+│  Component              │  Time     │  % of Total │
+├───────────────────────────────────────────────────┤
 │  Network (Client → CDN) │  50-100ms │  8-15%      │
-│  Edge Function Startup │  30-50ms  │  5-8%       │
-│  Request Parsing       │  5-10ms   │  1-2%       │
-│  Document Retrieval    │  10-30ms  │  2-5%       │
-│  Groq API Request      │  250-600ms│  50-70%     │
-│  Response Generation   │  20-40ms  │  3-5%       │
-│  Network (CDN → Client)│  50-100ms │  8-15%     │
-│  Browser Rendering    │  30-50ms  │  5-8%       │
-└────────────────────────────────────────────────────┘
+│  Edge Function Startup  │  30-50ms  │  5-8%       │
+│  Request Parsing        │  5-10ms   │  1-2%       │
+│  Document Retrieval     │  10-30ms  │  2-5%       │
+│  Groq API Request       │  250-600ms│  50-70%     │
+│  Response Generation    │  20-40ms  │  3-5%       │
+│  Network (CDN → Client) │  50-100ms │  8-15%      │
+│  Browser Rendering      │  30-50ms  │  5-8%       │
+└───────────────────────────────────────────────────┘
 
 Dominant Component: Groq API inference (50-70% of time)
 Opportunity: Caching, streaming, or faster models
@@ -97,13 +97,13 @@ Peak outliers can reach 2000ms+ (network delays, API timeouts)
 
 ### Throughput Metrics
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| **Concurrent Connections** | Unlimited | Serverless auto-scaling |
-| **Requests per Second** | Auto-scales | Groq API limits ~1000 req/min |
-| **Burst Capacity** | 10,000+ RPS | Vercel edge handles spikes |
-| **Cost per Request** | ~$0.0001-0.001 | Vercel + Groq fees |
-| **Monthly Budget (1M req)** | ~$100-300 | Estimate for moderate load |
+|            Metric           |      Value     |              Notes            |
+|-----------------------------|----------------|-------------------------------|
+| **Concurrent Connections**  | Unlimited      | Serverless auto-scaling       |
+| **Requests per Second**     | Auto-scales    | Groq API limits ~1000 req/min |
+| **Burst Capacity**          | 10,000+ RPS    | Vercel edge handles spikes    |
+| **Cost per Request**        | ~$0.0001-0.001 | Vercel + Groq fees            |
+| **Monthly Budget (1M req)** | ~$100-300      | Estimate for moderate load    |
 
 ---
 
@@ -115,7 +115,7 @@ Peak outliers can reach 2000ms+ (network delays, API timeouts)
 
 ```
 ┌───────────────────────────────────────────┐
-│  Phase              │  Duration  │  Notes  │
+│  Phase             │  Duration  │  Notes  │
 ├───────────────────────────────────────────┤
 │  DNS Lookup        │  20-50ms   │ Cached  │
 │  TCP Connection    │  50-100ms  │ SSL     │
@@ -729,14 +729,14 @@ export async function POST(request: NextRequest) {
 
 ### Real-World User Scenarios
 
-| Scenario | Response Time | UX Rating | Notes |
-|----------|---------------|-----------|-------|
-| Cold start (new user) | 1500-2200ms | ⭐⭐⭐⭐ Good | Page load + query |
-| Warm start (cached) | 400-600ms | ⭐⭐⭐⭐⭐ Excellent | Optimal experience |
-| Slow network (3G) | 1200-2000ms | ⭐⭐⭐ Acceptable | Mobile devices |
-| Peak load (1000s) | 500-900ms | ⭐⭐⭐⭐ Good | Stable under load |
-| Mobile device | 600-1200ms | ⭐⭐⭐⭐ Good | Slower CPU |
-| Multiple queries | 400-600ms | ⭐⭐⭐⭐⭐ Excellent | Repeated use |
+|        Scenario       | Response Time |        UX Rating        |        Notes        |
+|-----------------------|---------------|-------------------------|---------------------|
+| Cold start (new user) | 1500-2200ms   | ⭐⭐⭐⭐ Good         | Page load + query   |
+| Warm start (cached)   | 400-600ms     | ⭐⭐⭐⭐⭐ Excellent  | Optimal experience |
+| Slow network (3G)     | 1200-2000ms   | ⭐⭐⭐ Acceptable      | Mobile devices     |
+| Peak load (1000s)     | 500-900ms     | ⭐⭐⭐⭐ Good         | Stable under load   |
+| Mobile device         | 600-1200ms    | ⭐⭐⭐⭐ Good         | Slower CPU          |
+| Multiple queries      | 400-600ms     | ⭐⭐⭐⭐⭐ Excellent  | Repeated use        |
 
 ### Comparison with Baselines
 
