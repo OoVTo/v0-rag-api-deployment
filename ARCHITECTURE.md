@@ -12,15 +12,15 @@ A traditional command-line approach represents the foundational RAG pattern:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Python CLI Architecture                      │
+│                     Python CLI Architecture                     │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  User Input → Parse Args → Load Documents → Retrieve Docs       │
-│                                ↓                                  │
-│                          Similarity Search → Generate Answer      │
-│                                ↓                                  │
-│                            Print Output                           │
-│                                                                  │
+│                                ↓                                │
+│                          Similarity Search → Generate Answer    │
+│                                ↓                                │
+│                            Print Output                         │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,19 +83,19 @@ def main():
 ### Network Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│         Developer's Machine             │
-│                                         │
+┌────────────────────────────────────────┐
+│         Developer's Machine            │
+│                                        │
 │  ┌──────────────────────────────────┐  │
-│  │  Python CLI Application           │  │
+│  │  Python CLI Application          │  │
 │  │  - LLM model (~2-7GB)            │  │
 │  │  - Document database             │  │
-│  │  - Similarity engine              │  │
+│  │  - Similarity engine             │  │
 │  └──────────────────────────────────┘  │
-│                                         │
+│                                        │
 │  Network: LOCAL ONLY                   │
 │  Latency: 0ms                          │
-└─────────────────────────────────────────┘
+└────────────────────────────────────────┘
 ```
 
 ---
@@ -105,17 +105,17 @@ def main():
 Evolution to a cloud-based microservices architecture:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Cloud System Architecture                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────┐         ┌─────────────────────────────┐   │
-│  │  Load Balancer   │         │  API Gateway / Service Mesh  │   │
-│  └────────┬─────────┘         └────────────┬────────────────┘   │
-│           │                                  │                   │
-│  ┌────────▼────────────────────────────┐    │                   │
-│  │   Microservices (Container Pods)    │    │                   │
-│  │                                    │    │                   │
+┌───────────────────────────────────────────────────────────────┐
+│                    Cloud System Architecture                  │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────────┐         ┌────────────────────────────┐  │
+│  │  Load Balancer   │         │ API Gateway / Service Mesh │  │
+│  └────────┬─────────┘         └───────────┬────────────────┘  │
+│           │                               │                   │
+│  ┌────────▼──────────────────────────┐    │                   │
+│  │   Microservices (Container Pods)  │    │                   │
+│  │                                   │    │                   │
 │  │  ┌──────────────┐  ┌────────────┐ │    │                   │
 │  │  │  Retrieval   │  │ Generation │ │    │                   │
 │  │  │  Service     │  │ Service    │ │    │                   │
@@ -126,13 +126,13 @@ Evolution to a cloud-based microservices architecture:
 │  │  │   (Vector DB / Redis)       │  │    │                   │
 │  │  └─────────────────────────────┘  │    │                   │
 │  └────────┬──────────────────────────┘    │                   │
-│           │                                │                   │
+│           │                               │                   │
 │  ┌────────▼──────────────────────────────┐│                   │
 │  │  Logging, Monitoring, Tracing         ││                   │
 │  │  (Prometheus, ELK Stack)              ││                   │
 │  └───────────────────────────────────────┘│                   │
 │                                           │                   │
-└───────────────────────────────────────────┴────────────────────┘
+└───────────────────────────────────────────┴───────────────────┘
 ```
 
 ### Key Components
