@@ -14,6 +14,7 @@ interface Source {
   text: string
   region: string
   type: string
+  url?: string
 }
 
 interface QueryResult {
@@ -131,11 +132,22 @@ export default function Home() {
                 <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-4">Sources</h3>
                 <div className="space-y-3">
                   {result.sources.map((source, idx) => (
-                    <div key={source.id} className="bg-white rounded-lg p-4 border border-amber-100">
+                    <div key={source.id} className="bg-white rounded-lg p-4 border border-amber-100 hover:border-amber-300 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <div>
-                          <p className="text-sm font-semibold text-amber-900">{source.name}</p>
-                          <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          {source.url ? (
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-semibold text-amber-600 hover:text-amber-700 hover:underline break-words"
+                            >
+                              {source.name}
+                            </a>
+                          ) : (
+                            <p className="text-sm font-semibold text-amber-900">{source.name}</p>
+                          )}
+                          <div className="flex gap-2 mt-1 flex-wrap">
                             <span className="inline-block px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded">
                               {source.type}
                             </span>
@@ -147,6 +159,17 @@ export default function Home() {
                         <p className="text-xs font-medium text-amber-500 flex-shrink-0">Source {idx + 1}</p>
                       </div>
                       <p className="text-sm text-amber-900 mt-3">{source.text}</p>
+                      {source.url && (
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-amber-600 hover:text-amber-700 hover:underline mt-2 inline-block truncate max-w-full"
+                          title={source.url}
+                        >
+                          {source.url}
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>

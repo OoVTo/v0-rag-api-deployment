@@ -1,65 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { FOOD_DATA, type FoodItem } from "@/lib/food-data"
 
-function improvedSimilarity(query: string, text: string, region: string, type: string): number {
-  const queryLower = query.toLowerCase()
-  const textLower = text.toLowerCase()
-  const stopwords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'of', 'with', 'by'])
-
-  // Exact phrase match gets highest score
-  if (textLower.includes(queryLower)) {
-    return 1.0
-  }
-
-  // Extract meaningful words (not stopwords)
-  const queryWords = new Set(
-    queryLower.split(/\s+/)
-      .filter((w) => w.length > 2 && !stopwords.has(w))
-  )
-  
-  const textWords = textLower.split(/\s+/)
-    .filter((w) => w.length > 2 && !stopwords.has(w))
-
-  if (queryWords.size === 0) {
-    return 0
-  }
-
-  // Count significant word matches
-  let significantMatches = 0
-  for (const word of queryWords) {
-    if (textWords.some((t) => t.includes(word) || word.includes(t))) {
-      significantMatches++
-    }
-  }
-
-  // Check if region or type matches
-  let regionBoost = 0
-  let typeBoost = 0
-  
-  if (region && region.toLowerCase().split(/\s+/).some((w) => queryLower.includes(w))) {
-    regionBoost = 0.3
-  }
-  
-  if (type && queryLower.includes(type.toLowerCase())) {
-    typeBoost = 0.2
-  }
-
-  const baseScore = significantMatches / queryWords.size
-  return Math.min(1.0, baseScore + regionBoost + typeBoost)
+interface SearchResult {
+  title: string
+  link: string
+  snippet: string
 }
 
-function retrieveRelevantDocs(query: string, topK = 3): FoodItem[] {
-  const scores = FOOD_DATA.map((item) => {
-    const score = improvedSimilarity(query, item.text, item.region || "", item.type || "")
-    return { score, item }
-  })
+async function searchGoogle(query: string, topK = 3): Promise<SearchResult[]> {
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY
+  const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID
 
-  scores.sort((a, b) => b.score - a.score)
-  
-  // Only return results with a meaningful score (at least 0.3 relevance)
-  const relevantResults = scores.filter((s) => s.score >= 0.3).slice(0, topK)
-  
-  return relevantResults.map((s) => s.item)
+  if (!apiKey || !searchEngineId) {
+    throw new Error("Google Search API credentials are not configured. Please set GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID environment variables.")
+  }
+
+  try {
+    const searchUrl = new URL("https://www.googleapis.com/customsearch/v1")
+    searchUrl.searchParams.append("q", query)
+    searchUrl.searchParams.append("key", apiKey)
+    searchUrl.searchParams.append("cx", searchEngineId)
+    searchUrl.searchParams.append("num", String(topK))
+
+    const response = await fetch(searchUrl.toString())
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(`Google Search API error: ${errorData.error?.message || "Unknown error"}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.items || data.items.length === 0) {
+      return []
+    }
+
+    return data.items.map((item: any) => ({
+      title: item.title,
+      link: item.link,
+      snippet: item.snippet,
+    }))
+  } catch (error) {
+    console.error("[v0] Google Search error:", error)
+    throw error
+  }
 }
 
 async function generateAnswerWithGroq(question: string, context: string): Promise<string> {
@@ -69,7 +52,7 @@ async function generateAnswerWithGroq(question: string, context: string): Promis
     throw new Error("GROQ_API_KEY is not configured")
   }
 
-  const prompt = `Use the following context to answer the question.
+  const prompt = `Use the following context from web search results to answer the question thoroughly and accurately.
 
 Context:
 ${context}
@@ -90,7 +73,7 @@ Answer:`
           {
             role: "system",
             content:
-              "You are a helpful assistant that answers questions about food based on the provided context. Be concise and accurate. Include information about the region and type of food when relevant.",
+              "You are a helpful assistant that answers questions based on web search results. Be concise, accurate, and cite the sources when relevant.",
           },
           {
             role: "user",
@@ -124,20 +107,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 })
     }
 
-    // Retrieve relevant documents
-    const relevantDocs = retrieveRelevantDocs(question, 3)
-    const context = relevantDocs.map((doc) => doc.text).join("\n")
+    // Search Google for relevant sources
+    const searchResults = await searchGoogle(question, 3)
+    const context = searchResults.map((result) => `${result.title}\n${result.snippet}`).join("\n\n")
 
     // Generate answer using Groq
     const answer = await generateAnswerWithGroq(question, context)
 
-    // Format sources
-    const sources = relevantDocs.map((doc) => ({
-      id: doc.id,
-      name: doc.text.split("\n")[0].split(" is ")[0].trim(),
-      text: doc.text,
-      region: doc.region || "Global",
-      type: doc.type || "Food",
+    // Format sources with URLs
+    const sources = searchResults.map((result, idx) => ({
+      id: String(idx),
+      name: result.title,
+      text: result.snippet,
+      url: result.link,
+      type: "Web Source",
+      region: "Internet",
     }))
 
     return NextResponse.json({
@@ -154,8 +138,6 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    message: "RAG API is running",
-    documents_loaded: FOOD_DATA.length,
-    last_updated: "2025-12-06",
+    message: "RAG API with Google Search is running",
   })
 }
