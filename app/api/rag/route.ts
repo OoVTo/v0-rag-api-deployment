@@ -112,9 +112,12 @@ export async function POST(request: NextRequest) {
     const answer = await generateAnswerWithGroq(question, context)
 
     // Format sources
-    const sources = relevantDocs.map((doc, idx) => ({
+    const sources = relevantDocs.map((doc) => ({
       id: doc.id,
-      text: doc.text.substring(0, 100) + (doc.text.length > 100 ? "..." : ""),
+      name: doc.text.split("\n")[0].split(" is ")[0].trim(),
+      text: doc.text,
+      region: doc.region || "Global",
+      type: doc.type || "Food",
     }))
 
     return NextResponse.json({
