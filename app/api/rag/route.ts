@@ -1,45 +1,48 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { FOOD_DATA, type FoodItem } from "@/lib/food-data"
 
-function improvedSimilarity(query: string, text: string): number {
-  const queryLower = query.toLowerCase()
-  const textLower = text.toLowerCase()
-
-  // Exact phrase match gets highest score
-  if (textLower.includes(queryLower)) {
-    return 1.0
-  }
-
-  // Word-based similarity
-  const queryWords = new Set(queryLower.split(/\s+/).filter((w) => w.length > 2))
-  const textWords = textLower.split(/\s+/)
-
-  let matches = 0
-  for (const word of queryWords) {
-    if (textWords.some((t) => t.includes(word) || word.includes(t))) {
-      matches++
-    }
-  }
-
-  return matches / Math.max(queryWords.size, 1)
+interface SearchResult {
+  title: string
+  link: string
+  snippet: string
 }
 
-function retrieveRelevantDocs(query: string, topK = 3): FoodItem[] {
-  const scores = FOOD_DATA.map((item) => {
-    let enriched = item.text
-    if (item.region) {
-      enriched += ` Region: ${item.region}.`
-    }
-    if (item.type) {
-      enriched += ` Type: ${item.type}.`
+async function searchGoogle(query: string, topK = 3): Promise<SearchResult[]> {
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY
+  const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID
+
+  if (!apiKey || !searchEngineId) {
+    throw new Error("Google Search API credentials are not configured. Please set GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID environment variables.")
+  }
+
+  try {
+    const searchUrl = new URL("https://www.googleapis.com/customsearch/v1")
+    searchUrl.searchParams.append("q", query)
+    searchUrl.searchParams.append("key", apiKey)
+    searchUrl.searchParams.append("cx", searchEngineId)
+    searchUrl.searchParams.append("num", String(topK))
+
+    const response = await fetch(searchUrl.toString())
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(`Google Search API error: ${errorData.error?.message || "Unknown error"}`)
     }
 
-    const score = improvedSimilarity(query, enriched)
-    return { score, item }
-  })
+    const data = await response.json()
 
-  scores.sort((a, b) => b.score - a.score)
-  return scores.slice(0, topK).map((s) => s.item)
+    if (!data.items || data.items.length === 0) {
+      return []
+    }
+
+    return data.items.map((item: any) => ({
+      title: item.title,
+      link: item.link,
+      snippet: item.snippet,
+    }))
+  } catch (error) {
+    console.error("[v0] Google Search error:", error)
+    throw error
+  }
 }
 
 async function generateAnswerWithGroq(question: string, context: string): Promise<string> {
@@ -49,7 +52,7 @@ async function generateAnswerWithGroq(question: string, context: string): Promis
     throw new Error("GROQ_API_KEY is not configured")
   }
 
-  const prompt = `Use the following context to answer the question.
+  const prompt = `Use the following context from web search results to answer the question thoroughly and accurately.
 
 Context:
 ${context}
@@ -70,7 +73,7 @@ Answer:`
           {
             role: "system",
             content:
-              "You are a helpful assistant that answers questions about food based on the provided context. Be concise and accurate. Include information about the region and type of food when relevant.",
+              "You are a helpful assistant that answers questions based on web search results. Be concise, accurate, and cite the sources when relevant.",
           },
           {
             role: "user",
@@ -104,17 +107,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Question is required" }, { status: 400 })
     }
 
-    // Retrieve relevant documents
-    const relevantDocs = retrieveRelevantDocs(question, 3)
-    const context = relevantDocs.map((doc) => doc.text).join("\n")
+    // Search Google for relevant sources
+    const searchResults = await searchGoogle(question, 3)
+    const context = searchResults.map((result) => `${result.title}\n${result.snippet}`).join("\n\n")
 
     // Generate answer using Groq
     const answer = await generateAnswerWithGroq(question, context)
 
-    // Format sources
-    const sources = relevantDocs.map((doc, idx) => ({
-      id: doc.id,
-      text: doc.text.substring(0, 100) + (doc.text.length > 100 ? "..." : ""),
+    // Format sources with URLs
+    const sources = searchResults.map((result, idx) => ({
+      id: String(idx),
+      name: result.title,
+      text: result.snippet,
+      url: result.link,
+      type: "Web Source",
+      region: "Internet",
     }))
 
     return NextResponse.json({
@@ -131,8 +138,6 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    message: "RAG API is running",
-    documents_loaded: FOOD_DATA.length,
-    last_updated: "2025-12-06",
+    message: "RAG API with Google Search is running",
   })
 }
