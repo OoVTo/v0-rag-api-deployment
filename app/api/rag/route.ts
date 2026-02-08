@@ -1,45 +1,69 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { FOOD_DATA, type FoodItem } from "@/lib/food-data"
 
-function improvedSimilarity(query: string, text: string): number {
+function improvedSimilarity(query: string, text: string, region: string, type: string): number {
   const queryLower = query.toLowerCase()
   const textLower = text.toLowerCase()
+  const stopwords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'of', 'with', 'by'])
 
   // Exact phrase match gets highest score
   if (textLower.includes(queryLower)) {
     return 1.0
   }
 
-  // Word-based similarity
-  const queryWords = new Set(queryLower.split(/\s+/).filter((w) => w.length > 2))
+  // Extract meaningful words (not stopwords)
+  const queryWords = new Set(
+    queryLower.split(/\s+/)
+      .filter((w) => w.length > 2 && !stopwords.has(w))
+  )
+  
   const textWords = textLower.split(/\s+/)
+    .filter((w) => w.length > 2 && !stopwords.has(w))
 
-  let matches = 0
+  if (queryWords.size === 0) {
+    return 0
+  }
+
+  // Count significant word matches
+  let significantMatches = 0
   for (const word of queryWords) {
     if (textWords.some((t) => t.includes(word) || word.includes(t))) {
-      matches++
+      significantMatches++
     }
   }
 
-  return matches / Math.max(queryWords.size, 1)
+  // Check if region or type matches
+  let regionBoost = 0
+  let typeBoost = 0
+  
+  if (region && region.toLowerCase().split(/\s+/).some((w) => queryLower.includes(w))) {
+    regionBoost = 0.3
+  }
+  
+  if (type && queryLower.includes(type.toLowerCase())) {
+    typeBoost = 0.2
+  }
+
+  const baseScore = significantMatches / queryWords.size
+  return Math.min(1.0, baseScore + regionBoost + typeBoost)
 }
 
 function retrieveRelevantDocs(query: string, topK = 3): FoodItem[] {
   const scores = FOOD_DATA.map((item) => {
-    let enriched = item.text
-    if (item.region) {
-      enriched += ` Region: ${item.region}.`
-    }
-    if (item.type) {
-      enriched += ` Type: ${item.type}.`
-    }
-
-    const score = improvedSimilarity(query, enriched)
+    const score = improvedSimilarity(query, item.text, item.region || "", item.type || "")
     return { score, item }
   })
 
   scores.sort((a, b) => b.score - a.score)
-  return scores.slice(0, topK).map((s) => s.item)
+  
+  // Filter out results with zero score if we have better matches
+  const topResults = scores.slice(0, topK)
+  if (topResults.length > 0 && topResults[0].score > 0) {
+    return topResults.map((s) => s.item)
+  }
+  
+  // Fallback: return top results anyway if no matches found
+  return topResults.map((s) => s.item)
 }
 
 async function generateAnswerWithGroq(question: string, context: string): Promise<string> {
@@ -106,6 +130,8 @@ export async function POST(request: NextRequest) {
 
     // Retrieve relevant documents
     const relevantDocs = retrieveRelevantDocs(question, 3)
+    console.log("[v0] Question:", question)
+    console.log("[v0] Retrieved docs:", relevantDocs.map(d => d.text.substring(0, 50)))
     const context = relevantDocs.map((doc) => doc.text).join("\n")
 
     // Generate answer using Groq
