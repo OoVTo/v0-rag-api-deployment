@@ -56,14 +56,10 @@ function retrieveRelevantDocs(query: string, topK = 3): FoodItem[] {
 
   scores.sort((a, b) => b.score - a.score)
   
-  // Filter out results with zero score if we have better matches
-  const topResults = scores.slice(0, topK)
-  if (topResults.length > 0 && topResults[0].score > 0) {
-    return topResults.map((s) => s.item)
-  }
+  // Only return results with a meaningful score (at least 0.3 relevance)
+  const relevantResults = scores.filter((s) => s.score >= 0.3).slice(0, topK)
   
-  // Fallback: return top results anyway if no matches found
-  return topResults.map((s) => s.item)
+  return relevantResults.map((s) => s.item)
 }
 
 async function generateAnswerWithGroq(question: string, context: string): Promise<string> {
@@ -130,8 +126,6 @@ export async function POST(request: NextRequest) {
 
     // Retrieve relevant documents
     const relevantDocs = retrieveRelevantDocs(question, 3)
-    console.log("[v0] Question:", question)
-    console.log("[v0] Retrieved docs:", relevantDocs.map(d => d.text.substring(0, 50)))
     const context = relevantDocs.map((doc) => doc.text).join("\n")
 
     // Generate answer using Groq
